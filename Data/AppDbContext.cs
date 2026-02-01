@@ -39,5 +39,9 @@ public class AppDbContext : DbContext
             .HasOne(c => c.ParentComment)
             .WithMany()
             .HasForeignKey(c => c.ParentCommentId);
+
+        modelBuilder.Entity<Like>()
+            .HasIndex(l => new { l.BlogPostId, l.UserId })
+            .IsUnique();
     }
 }
