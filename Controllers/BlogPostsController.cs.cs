@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using BlogApp.Api.Data;
 using BlogApp.Api.DTOs.Blog;
+using BlogApp.Api.DTOs.Common;
 using BlogApp.Api.Models.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -77,22 +78,36 @@ namespace MyApp.Namespace
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] PaginationQuery query)
         {
-            var blogPosts = await _context.BlogPosts
+            var baseQuery = _context.BlogPosts
             .Include(bp => bp.Author)
-            .OrderByDescending(bp => bp.CreatedAt)
-            .Select(bp => new BlogPostResponseDto
+            .OrderByDescending(bp => bp.CreatedAt);
+
+            var totalCount = await baseQuery.CountAsync();
+
+            var posts = await baseQuery
+            .Skip(query.Skip)
+            .Take(query.PageSize)
+            .Select(p => new BlogPostResponseDto
             {
-                Id = bp.Id,
-                Title = bp.Title,
-                Content = bp.Content,
-                AuthorUsername = bp.Author.Username,
-                CreatedAt = bp.CreatedAt
+                Id = p.Id,
+                Title = p.Title,
+                Content = p.Content,
+                AuthorUsername = p.Author.Username,
+                CreatedAt = p.CreatedAt
             })
             .ToListAsync();
 
-            return Ok(blogPosts);
+            var result = new PagedResult<BlogPostResponseDto>
+            {
+                Page = query.Page,
+                PageSize = query.PageSize,
+                TotalCount = totalCount,
+                Items = posts
+            };
+
+            return Ok(result);
         }
 
         [HttpGet("{id}")]

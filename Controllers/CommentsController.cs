@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using BlogApp.Api.Data;
 using BlogApp.Api.DTOs.Comment;
+using BlogApp.Api.DTOs.Common;
 using BlogApp.Api.Models.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -65,13 +66,19 @@ namespace BlogApp.Api.Controllers
         }
 
         [HttpGet("blog/{blogPostId}")]
-        public async Task<IActionResult> GetForBlog(Guid blogPostId)
+        public async Task<IActionResult> GetForBlog(Guid blogPostId, [FromQuery] PaginationQuery query)
         {
-            var comments = await _context.Comments
+            var baseQuery = _context.Comments
             .Where(cm => cm.BlogPostId == blogPostId)
             .Include(c => c.User)
-            .OrderBy(c => c.CreatedAt)
-            .Select(c => new CommentResponseDto
+            .OrderBy(c => c.CreatedAt);
+
+            var totalCount = await baseQuery.CountAsync();
+
+            var comments = await baseQuery
+            .Skip(query.Skip)
+            .Take(query.PageSize)
+            .Select(c=>new CommentResponseDto
             {
                 Id = c.Id,
                 Content = c.Content,
@@ -81,7 +88,15 @@ namespace BlogApp.Api.Controllers
             })
             .ToListAsync();
 
-            return Ok(comments);
+            var result= new PagedResult<CommentResponseDto>
+            {
+                Page = query.Page,
+                PageSize = query.PageSize,
+                TotalCount = totalCount,
+                Items = comments
+            };
+
+            return Ok(result);
         }
     }
 }
